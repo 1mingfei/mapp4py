@@ -14,24 +14,41 @@
 #include "comm.h"
 #include "dynamic_md.h"
 using namespace MAPP_NS;
+#define GCMCDEBUG
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-GCMC::GCMC(AtomsMD*& __atoms,ForceFieldMD*&__ff,DynamicMD*& __dynamic,elem_type __gas_type,type0 __mu,type0 __T,int seed):
+GCMC::GCMC(AtomsMD*& __atoms,ForceFieldMD*&__ff,DynamicMD*& __dynamic,elem_type __gas_type0,type0 __mu0,elem_type __gas_type1,type0 __mu1,type0 __T,int seed):
 atoms(__atoms),
 ff(__ff),
 world(__atoms->comm.world),
 dynamic(__dynamic),
-gas_type(__gas_type),
-mu(__mu),
+gas_type0(__gas_type0),
+gas_type1(__gas_type1),
+mu0(__mu0),
+mu1(__mu1),
 T(__T),
 cut_sq(__ff->cut_sq),
 s_hi(__atoms->comm.s_hi),
 s_lo(__atoms->comm.s_lo),
 natms_lcl(__atoms->natms_lcl),
 natms_ph(__atoms->natms_ph),
-ielem(gas_type)
+ielem(gas_type0)
 {
+        ngas_lclArr = new int [nGasType];
+        muArr = new type0 [nGasType];// nullptr; //-mingfei change lambda to a vector
+        muArr[0] = mu0;
+        muArr[1] = mu1;
+        gas_typeArr = new elem_type [nGasType]; //-mingfei change lambda to a vector
+        gas_typeArr[0] = gas_type0;
+        gas_typeArr[1] = gas_type1;
+        gas_massArr = new type0 [nGasType]; //-mingfei change lambda to a vector
+        lambdaArr   = new type0 [nGasType]; //-mingfei change lambda to a vector
+        sigmaArr    = new type0 [nGasType]; //-mingfei change sigma to a vector
+        z_facArr    = new type0 [nGasType]; //-mingfei change z_facArr to a vector
+        ngasArr     = new int [nGasType];
+ 
+
     random=new Random(seed);
     s_trials=new type0*[__dim__];
     *s_trials=NULL;
@@ -47,6 +64,17 @@ GCMC::~GCMC()
     delete [] del_ids;
     delete [] s_trials;
     delete random;
+    // -mingfei release simgaArr
+    delete [] ngas_lclArr;
+    delete [] muArr;
+    delete [] gas_typeArr;
+    delete [] gas_massArr;
+    delete [] lambdaArr;
+    delete [] sigmaArr;
+    delete [] z_facArr;
+    delete [] ngasArr;
+
+
 }
 /*--------------------------------------------
  
@@ -89,14 +117,46 @@ void GCMC::init()
     for(size_t i=1;i<atoms->elements.nelems;i++)
         cut=MAX(cut,ff->cut[ielem][i]);
     
-    gas_mass=atoms->elements.masses[gas_type];
+    gas_mass0=atoms->elements.masses[gas_type0];
+    gas_mass1=atoms->elements.masses[gas_type1];
+    //-mingfei
+    gas_massArr[0]=atoms->elements.masses[gas_type0];
+    gas_massArr[1]=atoms->elements.masses[gas_type1];
+    //-mingfei 
+
     kbT=atoms->kB*T;
     beta=1.0/kbT;
-    lambda=atoms->hP/sqrt(2.0*M_PI*kbT*gas_mass);
-    sigma=sqrt(kbT/gas_mass);
+     
+    lambda=atoms->hP/sqrt(2.0*M_PI*kbT*gas_mass0);
+    sigma=sqrt(kbT/gas_mass0);
     z_fac=1.0;
     for(int i=0;i<__dim__;i++) z_fac/=lambda;
-    z_fac*=exp(beta*mu);
+    z_fac*=exp(beta*mu0);
+    for (int i = 0;i < nGasType;i++)
+    {
+        lambdaArr[i] = atoms->hP/sqrt(2.0*M_PI*kbT*gas_massArr[i]);
+        sigmaArr[i] = sqrt(kbT/gas_massArr[i]);
+        z_facArr[i] = 1.0;
+        for(int j=0;j<__dim__;j++) z_facArr[i] /= lambdaArr[i];
+        z_facArr[i] *= exp(beta*muArr[i]);
+        ngas_lclArr[i] = 0;
+        ngasArr[i] = 0;
+#ifdef GCMCDEBUG
+        FILE* fp_debug=NULL;
+        if(atoms->comm_rank==0)
+        {
+            fp_debug=fopen("gcmc_debug","a");
+            fprintf(fp_debug,"i\t%d\n",i);
+            fprintf(fp_debug,"sigma\t%e\n",sigmaArr[i]);
+            fprintf(fp_debug,"gas_mass0\t%e\n",gas_mass0);
+            fprintf(fp_debug,"gas_mass1\t%e\n",gas_mass1);
+            fprintf(fp_debug,"gas_massArr\t%e\n",gas_massArr[i]);
+            fprintf(fp_debug,"mu\t%e\n",muArr[i]);
+        }
+#endif
+
+    }
+
     vol=1.0;
     for(int i=0;i<__dim__;i++)vol*=atoms->H[i][i];
     
@@ -110,9 +170,26 @@ void GCMC::init()
         
     ngas_lcl=0;
     elem_type* elem=atoms->elem->begin();
-    for(int i=0;i<natms_lcl;i++)
-        if(elem[i]==gas_type) ngas_lcl++;
+    for(int i=0;i<natms_lcl;i++) 
+    {
+        if(elem[i]==gas_type0) ngas_lcl++; 
+        for (int j=0; j< nGasType;j++) // -mingfei 
+        {
+            if(elem[i]==gas_typeArr[j]) ngas_lclArr[j]++; //-mingfei
+        }
+    }
     MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
+    MPI_Allreduce(ngas_lclArr,ngasArr,nGasType,MPI_INT,MPI_SUM,world);//-mingfei
+#ifdef GCMCDEBUG
+        FILE* fp_debug=NULL;
+        if(atoms->comm_rank==0)
+        {
+            fp_debug=fopen("gcmc_debug","a");
+            fprintf(fp_debug,"ngasArr\t%d\t%d\n",ngasArr[0],ngasArr[1]);
+        }
+#endif
+
+
 }
 /*--------------------------------------------
  

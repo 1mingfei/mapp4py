@@ -44,11 +44,12 @@ min.ls=mapp.ls_brent();
 
 ################################################################
 
-muvt=md.muvt(-2.33,300,0.1,'H',2411895,'Fe',-1.2,0.3);
-muvt.nevery=10;
+#muvt=md.muvt(-2.2,300,0.1,'Fe',2411895,'H',-2.2,0.3);
+muvt=md.muvt(-2.2,300,0.1,'H',2411895,'Fe',-1.2,0.3);
+muvt.nevery=4;
 muvt.nattempts=10;
 muvt.ntally=1;
-muvt.export=md.export_cfg('dumps/dump',100)
+muvt.export=md.export_cfg('dumps/dump',10)
 
 ################################################################
 
@@ -75,6 +76,6 @@ sim.create_temp(300.0,8569643);
 sim.step=0
 
 start = time.time()
-muvt.run(sim,100);
+muvt.run(sim,2);
 print "time elapsed: %lf seconds" % (time.time()-start)
 

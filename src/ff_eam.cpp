@@ -6,7 +6,7 @@
 #include "api.h"
 #include "import_eam.h"
 #include "dynamic_md.h"
-#include "gcmc_2.h"
+#include "gcmc.h"
 using namespace MAPP_NS;
 /*--------------------------------------------
  constructor

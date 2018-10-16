@@ -1,6 +1,15 @@
 ratio	3.000000e-01
 step	acc_du	gcmc_du	rel_error	error
-sigma	3.528350e-156
-masses	5.584500e+01
-sigma	2.626313e-155
-masses	1.007940e+00
+i	0
+sigma	1.601510e-01
+gas_mass0	1.007940e+00
+gas_mass1	5.584500e+01
+gas_massArr	1.007940e+00
+mu	-2.200000e+00
+i	1
+sigma	2.151567e-02
+gas_mass0	1.007940e+00
+gas_mass1	5.584500e+01
+gas_massArr	5.584500e+01
+mu	-1.200000e+00
+ngasArr	0	177750

@@ -7,7 +7,7 @@
 #include "atoms_md.h"
 #include "elements.h"
 #include "memory.h"
-#include "pgcmc.h"
+#include "pgcmc_2.h"
 #include "api.h"
 using namespace MAPP_NS;
 /*--------------------------------------------

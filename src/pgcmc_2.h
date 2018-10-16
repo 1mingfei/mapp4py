@@ -1,6 +1,6 @@
 #ifndef __MAPP__pgcmc_2__
 #define __MAPP__pgcmc_2__
-#include "gcmc_2.h"
+#include "gcmc.h"
 namespace MAPP_NS
 {
     

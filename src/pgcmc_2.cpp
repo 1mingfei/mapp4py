@@ -15,8 +15,8 @@
 #include "dynamic_md.h"
 using namespace MAPP_NS;
 
-#ifndef GCMC_2DEBUG //-mingfei
-#define GCMC_2DEBUG //-mingfei
+#ifndef GCMCDEBUG //-mingfei
+#define GCMCDEBUG //-mingfei
 #endif //-mingfei
 /*--------------------------------------------
  constructor
@@ -121,9 +121,6 @@ PGCMC_2::~PGCMC_2()
 {
     delete [] rel_neigh_lst_coord;
     delete lcl_random;   
-    delete [] sigmaArr; // -mingfei release simgaArr
-    
-
 }
 /*--------------------------------------------
  
@@ -249,12 +246,26 @@ void PGCMC_2::xchng(bool chng_box,int nattmpts)
     for(int i=0;i<atoms->ndynamic_vecs;i++)
         atoms->dynamic_vecs[i]->resize(natms_lcl);
     
-    ngas_lcl=0;
+    ngas_lcl=0; //ngas_lclArr[] initialized in GCMC::init()
     elem_type* elem=atoms->elem->begin();
-    for(int i=0;i<natms_lcl;i++)
-        if(elem[i]==gas_type0) ngas_lcl++;
+    for(int i=0;i<natms_lcl;i++) 
+    {
+        if(elem[i]==gas_type0) ngas_lcl++; 
+        for (int j=0; j< nGasType;j++) // -mingfei 
+        {
+            if(elem[i]==gas_typeArr[j]) ngas_lclArr[j]++; //-mingfei
+        }
+    }
     MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
-    
+    MPI_Allreduce(ngas_lclArr,ngasArr,nGasType,MPI_INT,MPI_SUM,world);//-mingfei
+#ifdef GCMCDEBUG
+        if(atoms->comm_rank==0)
+        {
+            fp_debug=fopen("gcmc_debug","a");
+            fprintf(fp_debug,"pgcmc exchange\n");
+            fprintf(fp_debug,"ngasArr\t%d\t%d\n",ngasArr[0],ngasArr[1]);
+        }
+#endif
     
     next_jatm_p=&PGCMC_2::next_jatm_reg;
     
@@ -585,11 +596,11 @@ void PGCMC_2::attmpt()
             }
             else
             {
-                if(ngas_lcl)
+                if(ngas_lclArr[0])
                 {
                     gcmc_mode[0]=DEL_MODE;
                     comm_buff[0]=1;
-                    igas=static_cast<int>(ngas_lcl*lcl_random->uniform());
+                    igas=static_cast<int>(ngas_lclArr[0]*lcl_random->uniform());
                     
                     int n=igas;
                     int icount=-1;
@@ -624,11 +635,11 @@ void PGCMC_2::attmpt()
                 }
                 else
                 {
-                    if(ngas_lcl)
+                    if(ngas_lclArr[1])
                     {
                         gcmc_mode[0]=DEL_MODE;
                         comm_buff[0]=1;
-                        igas=static_cast<int>(ngas_lcl*lcl_random->uniform());
+                        igas=static_cast<int>(ngas_lclArr[1]*lcl_random->uniform());
                         
                         int n=igas;
                         int icount=-1;

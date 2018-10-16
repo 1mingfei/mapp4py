@@ -55,10 +55,22 @@ namespace MAPP_NS
         
                 
         int igas,gas_id,ngas_lcl;
-        elem_type gas_type;
+        const int nGasType = 2;//-mingfei use it as the number of gas elements
+
+        elem_type gas_type0;
+        elem_type gas_type1;
         type0 vol;
         //constants
-        type0 gas_mass,beta,kbT,T,mu,lambda,sigma,z_fac;
+        type0 gas_mass0,gas_mass1,beta,kbT,T,mu0,mu1,lambda,sigma,z_fac;
+        //-mingfei
+        int * ngas_lclArr=nullptr;
+        elem_type* gas_typeArr=nullptr;
+        type0* muArr=nullptr;
+        type0* gas_massArr=nullptr;
+        type0* lambdaArr=nullptr;
+        type0* sigmaArr=nullptr;
+        type0* z_facArr=nullptr;
+        //-mingfei
         
         int& natms_lcl;
         int& natms_ph;
@@ -114,7 +126,7 @@ namespace MAPP_NS
         type0 tot_delta_u_lcl;
 #endif
     public:
-        GCMC(class AtomsMD*&, class ForceFieldMD*&,class DynamicMD*&,elem_type,type0,type0,int);
+        GCMC(class AtomsMD*&, class ForceFieldMD*&,class DynamicMD*&,elem_type,type0,elem_type,type0,type0,int);
         virtual ~GCMC();
         
         virtual void init();
@@ -142,6 +154,7 @@ namespace MAPP_NS
         int xchng_mode;
         int dof_diff;
         int ngas;
+        int* ngasArr=nullptr; //-mingfei
         bool im_root;
 
         Vec<int>* tag_vec_p;

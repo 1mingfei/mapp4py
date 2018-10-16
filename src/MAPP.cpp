@@ -262,8 +262,8 @@ PyObject* MAPP::MD::init_module(void)
     PyModule_AddObject(module_ob,"nst",reinterpret_cast<PyObject*>(&MDNST::TypeObject));
     
     
-    if(MDMuVT::setup_tp()<0) return NULL;
-    PyModule_AddObject(module_ob,"muvt",reinterpret_cast<PyObject*>(&MDMuVT::TypeObject));
+    if(MDMuVT_2::setup_tp()<0) return NULL;
+    PyModule_AddObject(module_ob,"muvt",reinterpret_cast<PyObject*>(&MDMuVT_2::TypeObject));
     
     
     if(MinCG::setup_tp()<0) return NULL;

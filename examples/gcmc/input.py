@@ -39,16 +39,16 @@ mapp.pause_slave_out();
 ################################################################
 
 min=md.min_cg(e_tol=1.0e-8);
-min.ntally=10000;
+min.ntally=1;
 min.ls=mapp.ls_brent();
 
 ################################################################
 
-muvt=md.muvt(-2.33,300,0.1,'H',2411895);
-muvt.nevery=100;
-muvt.nattempts=10000;
-muvt.ntally=1000;
-muvt.export=md.export_cfg('dumps/dump',10000)
+muvt=md.muvt(-2.33,300,0.1,'H',2411895,'Fe',-1.2,0.3);
+muvt.nevery=10;
+muvt.nattempts=10;
+muvt.ntally=1;
+muvt.export=md.export_cfg('dumps/dump',100)
 
 ################################################################
 
@@ -61,12 +61,12 @@ sim.hP=planck
 sim.kB=boltz
 
 
-min.run(sim,500000)
+min.run(sim,2)
 
-min.H_dof=[[True],[False,False],[False,False,True]]
-min.affine=True
+#min.H_dof=[[True],[False,False],[False,False,True]]
+#min.affine=True
 
-min.run(sim,500000)
+#min.run(sim,500)
 
 sim.create_temp(300.0,8569643);
 
@@ -75,6 +75,6 @@ sim.create_temp(300.0,8569643);
 sim.step=0
 
 start = time.time()
-muvt.run(sim,50000000);
+muvt.run(sim,100);
 print "time elapsed: %lf seconds" % (time.time()-start)
 

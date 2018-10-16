@@ -2,6 +2,7 @@
 #define __MAPP__dae__
 #include "api.h"
 #include "export_styles.h"
+#include "min_vec.h"
 namespace MAPP_NS
 {
     template<typename> class Vec;

@@ -269,7 +269,8 @@ void MDMuVT_2::run(int nsteps)
     
     PGCMC_2 gcmc(atoms,ff,dynamic,1,atoms->elements.find(gas_elem_name0.c_str()),mu0,T,seed,atoms->elements.find(gas_elem_name1.c_str()),mu1,ratio);
     gcmc.init();
-    type0 gas_frac=static_cast<type0>(gcmc.ngas)/static_cast<type0>(atoms->natms);
+    type0 gas_frac0=static_cast<type0>(gcmc.ngasArr[0])/static_cast<type0>(atoms->natms);
+    type0 gas_frac1=static_cast<type0>(gcmc.ngasArr[1])/static_cast<type0>(atoms->natms);
 #ifdef GCMCDEBUG
     type0 delta_u=0.0;
     FILE* fp_debug=NULL;
@@ -277,7 +278,7 @@ void MDMuVT_2::run(int nsteps)
     {
         fp_debug=fopen("gcmc_debug","a");
         fprintf(fp_debug,"ratio\t%e\n",ratio);
-        fprintf(fp_debug,"step\tacc_du\tgcmc_du\trel_error\terror\n");
+        //fprintf(fp_debug,"step\tacc_du\tgcmc_du\trel_error\terror\n");
     }
 #endif
     
@@ -293,7 +294,8 @@ void MDMuVT_2::run(int nsteps)
     "S[1][2]",S_part[2][1],
     "S[2][0]",S_part[2][0],
     "S[0][1]",S_part[1][0],
-    "GAS_FRAC",gas_frac);
+    "GAS_FRAC0",gas_frac0,
+    "GAS_FRAC1",gas_frac1);
     
     if(ntally) thermo.init();
     Algebra::DoLT<__dim__>::func([this](const int i,const int j)
@@ -334,7 +336,7 @@ void MDMuVT_2::run(int nsteps)
             delta_u=atoms->pe;
 #endif
             gcmc.xchng(false,nattempts);
-            gas_frac=static_cast<type0>(gcmc.ngas)/static_cast<type0>(atoms->natms);
+            gas_frac0=static_cast<type0>(gcmc.ngasArr[0])/static_cast<type0>(atoms->natms);
             ndof_part+=static_cast<type0>(gcmc.dof_diff);
             Algebra::Do<__nvoigt__>::func([this,&gcmc](const int i){mvv[i]+=gcmc.mvv[i];});
             T_part=Algebra::Tr_DyadicV<__dim__>(mvv)/(ndof_part*kB);

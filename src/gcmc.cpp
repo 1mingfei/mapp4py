@@ -13,6 +13,7 @@
 #include "atoms_md.h"
 #include "comm.h"
 #include "dynamic_md.h"
+#include <iostream> //mingfei
 using namespace MAPP_NS;
 #define GCMCDEBUG
 /*--------------------------------------------
@@ -127,11 +128,11 @@ void GCMC::init()
     kbT=atoms->kB*T;
     beta=1.0/kbT;
      
-    lambda=atoms->hP/sqrt(2.0*M_PI*kbT*gas_mass0);
-    sigma=sqrt(kbT/gas_mass0);
-    z_fac=1.0;
-    for(int i=0;i<__dim__;i++) z_fac/=lambda;
-    z_fac*=exp(beta*mu0);
+    //lambda=atoms->hP/sqrt(2.0*M_PI*kbT*gas_mass0);
+    //sigma=sqrt(kbT/gas_mass0);
+    //z_fac=1.0;
+    //for(int i=0;i<__dim__;i++) z_fac/=lambda;
+    //z_fac*=exp(beta*mu0);
     for (int i = 0;i < nGasType;i++)
     {
         lambdaArr[i] = atoms->hP/sqrt(2.0*M_PI*kbT*gas_massArr[i]);
@@ -143,9 +144,10 @@ void GCMC::init()
         ngasArr[i] = 0;
 #ifdef GCMCDEBUG
         FILE* fp_debug=NULL;
+        fp_debug=fopen("gcmc_debug","a");
         if(atoms->comm_rank==0)
         {
-            fp_debug=fopen("gcmc_debug","a");
+            fprintf(fp_debug,"natoms\t%d\n",atoms->natms);
             fprintf(fp_debug,"i\t%d\n",i);
             fprintf(fp_debug,"sigma\t%e\n",sigmaArr[i]);
             fprintf(fp_debug,"gas_mass0\t%e\n",gas_mass0);
@@ -153,9 +155,11 @@ void GCMC::init()
             fprintf(fp_debug,"gas_massArr\t%e\n",gas_massArr[i]);
             fprintf(fp_debug,"mu\t%e\n",muArr[i]);
         }
-#endif
 
     }
+
+#endif
+
 
     vol=1.0;
     for(int i=0;i<__dim__;i++)vol*=atoms->H[i][i];
@@ -168,17 +172,17 @@ void GCMC::init()
     for(int i=0;i<del_ids_sz;i++)
         max_id=MAX(max_id,del_ids[i]);
         
-    ngas_lcl=0;
+    //ngas_lcl=0; //-mingfei
     elem_type* elem=atoms->elem->begin();
     for(int i=0;i<natms_lcl;i++) 
     {
-        if(elem[i]==gas_type0) ngas_lcl++; 
+        //if(elem[i]==gas_type0) ngas_lcl++; //-mingfei
         for (int j=0; j< nGasType;j++) // -mingfei 
         {
             if(elem[i]==gas_typeArr[j]) ngas_lclArr[j]++; //-mingfei
         }
     }
-    MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
+    //MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
     MPI_Allreduce(ngas_lclArr,ngasArr,nGasType,MPI_INT,MPI_SUM,world);//-mingfei
 #ifdef GCMCDEBUG
         FILE* fp_debug=NULL;

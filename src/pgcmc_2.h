@@ -54,6 +54,9 @@ namespace MAPP_NS
         int jcell_coord[__dim__];
         type0 cell_size[__dim__];
 
+        elem_type elem_buff;// this is a buff saving tmp gas element type-mingfei
+        int igasType = 0;// this is the index of which gas element we are working on-mingfei
+
 
         //dynamic determined by m
         //allocate in constructor
@@ -144,6 +147,7 @@ namespace MAPP_NS
         void del_succ();
         void box_setup();
         void box_dismantle();
+        elem_type iGasType;
 
         
     public:

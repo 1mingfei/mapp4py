@@ -13,11 +13,10 @@
 #include "MAPP.h"
 #include "comm.h"
 #include "dynamic_md.h"
+#include "print.h"
 using namespace MAPP_NS;
 
-#ifndef GCMCDEBUG //-mingfei
 #define GCMCDEBUG //-mingfei
-#endif //-mingfei
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
@@ -130,6 +129,8 @@ void PGCMC_2::init()
     dof_empty=atoms->x_dof->is_empty();
     GCMC::init();
     box_setup();
+
+ 
 }
 /*--------------------------------------------
  
@@ -246,27 +247,20 @@ void PGCMC_2::xchng(bool chng_box,int nattmpts)
     for(int i=0;i<atoms->ndynamic_vecs;i++)
         atoms->dynamic_vecs[i]->resize(natms_lcl);
     
-    ngas_lcl=0; //ngas_lclArr[] initialized in GCMC::init()
+    //ngas_lcl=0; //ngas_lclArr[] initialized in GCMC::init()
     elem_type* elem=atoms->elem->begin();
     for(int i=0;i<natms_lcl;i++) 
     {
-        if(elem[i]==gas_type0) ngas_lcl++; 
+        //if(elem[i]==gas_type0) ngas_lcl++; 
         for (int j=0; j< nGasType;j++) // -mingfei 
         {
             if(elem[i]==gas_typeArr[j]) ngas_lclArr[j]++; //-mingfei
         }
     }
-    MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
+    //MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
     MPI_Allreduce(ngas_lclArr,ngasArr,nGasType,MPI_INT,MPI_SUM,world);//-mingfei
-#ifdef GCMCDEBUG
-        if(atoms->comm_rank==0)
-        {
-            fp_debug=fopen("gcmc_debug","a");
-            fprintf(fp_debug,"pgcmc exchange\n");
-            fprintf(fp_debug,"ngasArr\t%d\t%d\n",ngasArr[0],ngasArr[1]);
-        }
-#endif
-    
+
+   
     next_jatm_p=&PGCMC_2::next_jatm_reg;
     
     
@@ -515,7 +509,8 @@ inline void PGCMC_2::next_jatm_self()
         
         jatm=natms_lcl+iself;
         jx=s_x_buff[icomm]+iself*__dim__;
-        jelem=gas_type0;
+        //jelem=gas_type0;
+        jelem=elem_buff;// image atom should be same type-mingfei
         rsq=Algebra::RSQ<__dim__>(ix,jx);
         
         if(rsq>=cut_sq[ielem][jelem]) continue;
@@ -586,79 +581,45 @@ void PGCMC_2::attmpt()
     {
         if (lcl_random->uniform()<ratio) //-mingfei 
         {
-            if(lcl_random->uniform()<0.5)
+            igasType = 0;
+        }
+        else
+        {
+            igasType = 1;
+        }
+        if(lcl_random->uniform()<0.5)
+        {
+            gcmc_mode[0]=INS_MODE;
+            comm_buff[0]=2;
+            for(int i=0;i<__dim__;i++)
+                s_buff[0][i]=s_lo[i]+lcl_random->uniform()*(s_hi[i]-s_lo[i]);
+            memcpy(comm_buff+1,s_buff[0],__dim__*sizeof(type0));
+            elem_buff=gas_typeArr[igasType];
+        }
+        else
+        {
+            if(ngas_lclArr[igasType])
             {
-                gcmc_mode[0]=INS_MODE;
-                comm_buff[0]=2;
-                for(int i=0;i<__dim__;i++)
-                    s_buff[0][i]=s_lo[i]+lcl_random->uniform()*(s_hi[i]-s_lo[i]);
+                gcmc_mode[0]=DEL_MODE;
+                comm_buff[0]=1;
+                igas=static_cast<int>(ngas_lclArr[igasType]*lcl_random->uniform());
+                
+                int n=igas;
+                int icount=-1;
+                elem_type* elem=atoms->elem->begin();
+                del_idx=0;
+                for(;icount!=n;del_idx++)
+                    if(elem[del_idx]==gas_typeArr[igasType]) icount++;
+                del_idx--;
+                gas_id=atoms->id->begin()[del_idx];
+                
+                memcpy(s_buff[0],s_vec_p->begin()+del_idx*__dim__,__dim__*sizeof(type0));
                 memcpy(comm_buff+1,s_buff[0],__dim__*sizeof(type0));
             }
             else
             {
-                if(ngas_lclArr[0])
-                {
-                    gcmc_mode[0]=DEL_MODE;
-                    comm_buff[0]=1;
-                    igas=static_cast<int>(ngas_lclArr[0]*lcl_random->uniform());
-                    
-                    int n=igas;
-                    int icount=-1;
-                    elem_type* elem=atoms->elem->begin();
-                    del_idx=0;
-                    for(;icount!=n;del_idx++)
-                        if(elem[del_idx]==gas_type0) icount++;
-                    del_idx--;
-                    gas_id=atoms->id->begin()[del_idx];
-                    
-                    memcpy(s_buff[0],s_vec_p->begin()+del_idx*__dim__,__dim__*sizeof(type0));
-                    memcpy(comm_buff+1,s_buff[0],__dim__*sizeof(type0));
-                }
-                else
-                {
-                    gcmc_mode[0]=NOEX_MODE;
-                    comm_buff[0]=0;
-                }
-            }
-        }
-        else //-mingfei
-        {
-            if (lcl_random->uniform()<ratio)
-            {
-                if(lcl_random->uniform()<0.5)
-                {
-                    gcmc_mode[0]=INS_MODE;
-                    comm_buff[0]=2;
-                    for(int i=0;i<__dim__;i++)
-                        s_buff[0][i]=s_lo[i]+lcl_random->uniform()*(s_hi[i]-s_lo[i]);
-                    memcpy(comm_buff+1,s_buff[0],__dim__*sizeof(type0));
-                }
-                else
-                {
-                    if(ngas_lclArr[1])
-                    {
-                        gcmc_mode[0]=DEL_MODE;
-                        comm_buff[0]=1;
-                        igas=static_cast<int>(ngas_lclArr[1]*lcl_random->uniform());
-                        
-                        int n=igas;
-                        int icount=-1;
-                        elem_type* elem=atoms->elem->begin();
-                        del_idx=0;
-                        for(;icount!=n;del_idx++)
-                            if(elem[del_idx]==gas_type1) icount++; //-mingfei change for the 2nd gas element type (gas_type1)
-                        del_idx--;
-                        gas_id=atoms->id->begin()[del_idx];
-                        
-                        memcpy(s_buff[0],s_vec_p->begin()+del_idx*__dim__,__dim__*sizeof(type0));
-                        memcpy(comm_buff+1,s_buff[0],__dim__*sizeof(type0));
-                    }
-                    else
-                    {
-                        gcmc_mode[0]=NOEX_MODE;
-                        comm_buff[0]=0;
-                    }
-                }
+                gcmc_mode[0]=NOEX_MODE;
+                comm_buff[0]=0;
             }
         }
 
@@ -749,10 +710,12 @@ void PGCMC_2::del_succ()
         *p_2_first_aft_del=del_idx;
         
     }
-    type0 __gas_mass=-gas_mass0;
+    //type0 __gas_mass=-gas_mass;
+    type0 __gas_mass=-gas_massArr[igasType];//-mingfei
     Algebra::DyadicV<__dim__>(__gas_mass,atoms->x_d->begin()+del_idx*__dim__,mvv_lcl);
     atoms->del(del_idx);
-    ngas_lcl--;
+    //ngas_lcl--;
+    ngas_lclArr[igasType]--; //-mingfei
 }
 /*--------------------------------------------
  things to do after a successful insertion
@@ -760,10 +723,21 @@ void PGCMC_2::del_succ()
 void PGCMC_2::ins_succ()
 {
     atoms->add();
-    for(int i=0;i<__dim__;i++) vel_buff[i]=lcl_random->gaussian()*sigma;
+    //for(int i=0;i<__dim__;i++) vel_buff[i]=lcl_random->gaussian()*sigma;
+    //check which gas type sigma should use-mingfei 
+    for (int j=0;j < nGasType; j++)
+    {
+        if (gas_typeArr[j]==elem_buff) 
+        {
+            for(int i=0;i<__dim__;i++) vel_buff[i]=lcl_random->gaussian()*sigmaArr[j];
+        }
+
+    }
+    //-mingfei
     memcpy(atoms->x->begin()+(natms_lcl-1)*__dim__,s_x_buff[0],__dim__*sizeof(type0));
     memcpy(atoms->x_d->begin()+(natms_lcl-1)*__dim__,vel_buff,__dim__*sizeof(type0));
-    atoms->elem->begin()[natms_lcl-1]=gas_type0;
+    //atoms->elem->begin()[natms_lcl-1]=gas_type0;
+    atoms->elem->begin()[natms_lcl-1]=elem_buff;//-mingfei
     atoms->id->begin()[natms_lcl-1]=new_id;
     if(tag_vec_p) tag_vec_p->begin()[natms_lcl-1]=-1;
     if(!dof_empty)
@@ -773,7 +747,9 @@ void PGCMC_2::ins_succ()
     }
     
     
-    Algebra::DyadicV<__dim__>(gas_mass0,atoms->x_d->begin()+(natms_lcl-1)*__dim__,mvv_lcl);
+    //Algebra::DyadicV<__dim__>(gas_mass,atoms->x_d->begin()+(natms_lcl-1)*__dim__,mvv_lcl);
+    //-mingfei
+    Algebra::DyadicV<__dim__>(gas_massArr[igasType],atoms->x_d->begin()+(natms_lcl-1)*__dim__,mvv_lcl);
     
     memcpy(s_vec_p->begin()+(natms_lcl-1)*__dim__,s_buff[0],__dim__*sizeof(type0));
     
@@ -787,7 +763,8 @@ void PGCMC_2::ins_succ()
         nxt_p=next_vec_p->begin()+*nxt_p;
     *nxt_p=natms_lcl-1;
     next_vec_p->begin()[natms_lcl-1]=-1;
-    ngas_lcl++;
+    //ngas_lcl++;
+    ngas_lclArr[igasType]++; //-mingfei
 }
 
 /*--------------------------------------------
@@ -1239,7 +1216,9 @@ void PGCMC_2::decide()
     type0 fac;
     if(gcmc_mode[0]==INS_MODE)
     {
-        fac=z_fac*vol_lcl/(static_cast<type0>(ngas_lcl+1)*exp(beta*delta_u));
+        //fac=z_fac*vol_lcl/(static_cast<type0>(ngas_lcl+1)*exp(beta*delta_u));
+        //-mingfei 
+        fac=z_facArr[igasType]*vol_lcl/(static_cast<type0>(ngas_lclArr[igasType]+1)*exp(beta*delta_u));
         if(lcl_random->uniform()<fac)
         {
             
@@ -1272,8 +1251,9 @@ void PGCMC_2::decide()
     }
     else if(gcmc_mode[0]==DEL_MODE)
     {
-        fac=static_cast<type0>(ngas_lcl)*exp(beta*delta_u)/(z_fac*vol_lcl);
-        
+        //fac=static_cast<type0>(ngas_lcl)*exp(beta*delta_u)/(z_fac*vol_lcl);
+        //-mingfei 
+        fac=static_cast<type0>(ngas_lclArr[igasType])*exp(beta*delta_u)/(z_facArr[igasType]*vol_lcl);
         if(lcl_random->uniform()<fac)
         {
 //#ifdef GCMCDEBUG
@@ -1317,7 +1297,8 @@ void PGCMC_2::finalize()
     }
     add_del_id(int_buff+2,int_buff_sz-2);
 
-    ngas+=int_buff[0];
+    //ngas+=int_buff[0];
+    ngasArr[igasType]+=int_buff[0];
     atoms->natms+=int_buff[0];
     dof_diff+=int_buff[0]*__dim__;
 }

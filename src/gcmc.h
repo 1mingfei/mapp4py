@@ -54,14 +54,16 @@ namespace MAPP_NS
     protected:
         
                 
-        int igas,gas_id,ngas_lcl;
+        //int igas,gas_id,ngas_lcl;
+        int igas,gas_id;
         const int nGasType = 2;//-mingfei use it as the number of gas elements
 
         elem_type gas_type0;
         elem_type gas_type1;
         type0 vol;
         //constants
-        type0 gas_mass0,gas_mass1,beta,kbT,T,mu0,mu1,lambda,sigma,z_fac;
+        //type0 gas_mass0,gas_mass1,beta,kbT,T,mu0,mu1,lambda,sigma,z_fac;
+        type0 gas_mass0,gas_mass1,beta,kbT,T,mu0,mu1;
         //-mingfei
         int * ngas_lclArr=nullptr;
         elem_type* gas_typeArr=nullptr;
@@ -153,7 +155,7 @@ namespace MAPP_NS
         type0 rsq;
         int xchng_mode;
         int dof_diff;
-        int ngas;
+        //int ngas;
         int* ngasArr=nullptr; //-mingfei
         bool im_root;
 

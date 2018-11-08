@@ -3,7 +3,7 @@
  Copyright (c) 2013 MIT. All rights reserved.
  --------------------------------------------*/
 #include "atoms_md.h"
-#include "pgcmc_2.h"
+#include "pgcmc.h"
 #include "memory.h"
 #include "random.h"
 #include "elements.h"
@@ -13,19 +13,13 @@
 #include "MAPP.h"
 #include "comm.h"
 #include "dynamic_md.h"
-#include "print.h"
 using namespace MAPP_NS;
-
-#define GCMCDEBUG //-mingfei
 /*--------------------------------------------
  constructor
  --------------------------------------------*/
-PGCMC_2::PGCMC_2(AtomsMD*& __atoms, ForceFieldMD*&__ff,\
-        DynamicMD*& __dynamic, int __m, elem_type __gas_type0, type0 __mu0,\
-        type0 __T, int seed, elem_type __gas_type1,type0 __mu1, type0 __ratio):
-GCMC(__atoms,__ff,__dynamic,__gas_type0,__mu0,__gas_type1,__mu1,__T,seed),
-m(__m),
-ratio(__ratio)
+PGCMC::PGCMC(AtomsMD*& __atoms,ForceFieldMD*&__ff,DynamicMD*& __dynamic,int __m,elem_type __gas_type,type0 __mu,type0 __T,int seed):
+GCMC(__atoms,__ff,__dynamic,__gas_type,__mu,__T,seed),
+m(__m)
 {
     n_comm=0;
     comm_id=NULL;
@@ -51,8 +45,7 @@ ratio(__ratio)
     cell_coord_buff=NULL;
     s_x_buff=NULL;
     s_buff=NULL;
-
-
+    
     
     
     
@@ -118,26 +111,26 @@ ratio(__ratio)
 /*--------------------------------------------
  destructor
  --------------------------------------------*/
-PGCMC_2::~PGCMC_2()
+PGCMC::~PGCMC()
 {
     delete [] rel_neigh_lst_coord;
-    delete lcl_random;   
+    delete lcl_random;    
+    
+
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::init()
+void PGCMC::init()
 {
     dof_empty=atoms->x_dof->is_empty();
     GCMC::init();
     box_setup();
-
- 
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::fin()
+void PGCMC::fin()
 {
     box_dismantle();
     GCMC::fin();
@@ -145,7 +138,7 @@ void PGCMC_2::fin()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::box_setup()
+void PGCMC::box_setup()
 {
     box_dismantle();
     GCMC::box_setup();
@@ -183,7 +176,7 @@ void PGCMC_2::box_setup()
 /*--------------------------------------------
  release the memory allocated by box_setup
  --------------------------------------------*/
-void PGCMC_2::box_dismantle()
+void PGCMC::box_dismantle()
 {
     
     comms_dismantle();
@@ -208,7 +201,7 @@ void PGCMC_2::box_dismantle()
 /*--------------------------------------------
  construct the bin list
  --------------------------------------------*/
-void PGCMC_2::xchng(bool chng_box,int nattmpts)
+void PGCMC::xchng(bool chng_box,int nattmpts)
 {
     dynamic->init_xchng();
     if(chng_box) box_setup();
@@ -249,38 +242,31 @@ void PGCMC_2::xchng(bool chng_box,int nattmpts)
     for(int i=0;i<atoms->ndynamic_vecs;i++)
         atoms->dynamic_vecs[i]->resize(natms_lcl);
     
-    //ngas_lcl=0; //ngas_lclArr[] initialized in GCMC::init()
+    ngas_lcl=0;
     elem_type* elem=atoms->elem->begin();
-    for(int i=0;i<natms_lcl;i++) 
-    {
-        //if(elem[i]==gas_type0) ngas_lcl++; 
-        for (int j=0; j< nGasType;j++) //-mingfei 
-        {
-            if(elem[i]==gas_typeArr[j]) ngas_lclArr[j]++; //-mingfei
-        }
-    }
-    //MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
-    MPI_Allreduce(ngas_lclArr,ngasArr,nGasType,MPI_INT,MPI_SUM,world);//-mingfei
-
-   
-    next_jatm_p=&PGCMC_2::next_jatm_reg;
+    for(int i=0;i<natms_lcl;i++)
+        if(elem[i]==gas_type) ngas_lcl++;
+    MPI_Allreduce(&ngas_lcl,&ngas,1,MPI_INT,MPI_SUM,world);
+    
+    
+    next_jatm_p=&PGCMC::next_jatm_reg;
     
     
     int nx=nattmpts/n_prll;
     if(nattmpts%n_prll) nx++;
 
-//#ifdef GCMCDEBUG
-//    tot_delta_u_lcl=0.0;
-//#endif
+#ifdef GCMCDEBUG
+    tot_delta_u_lcl=0.0;
+#endif
     dof_diff=0;
     Algebra::zero<__nvoigt__>(mvv_lcl);
     
     for(int i=0;i<nx;i++) attmpt();
 
     MPI_Allreduce(mvv_lcl,mvv,__nvoigt__,Vec<type0>::MPI_T,MPI_SUM,world);
-//#ifdef GCMCDEBUG
-//    MPI_Allreduce(&tot_delta_u_lcl,&tot_delta_u,1,Vec<type0>::MPI_T,MPI_SUM,world);
-//#endif
+#ifdef GCMCDEBUG
+    MPI_Allreduce(&tot_delta_u_lcl,&tot_delta_u,1,Vec<type0>::MPI_T,MPI_SUM,world);
+#endif
     
     ff->fin_xchng();
     memcpy(atoms->x->begin(),s_vec_p->begin(),sizeof(type0)*natms_lcl*__dim__);
@@ -295,7 +281,7 @@ void PGCMC_2::xchng(bool chng_box,int nattmpts)
 /*--------------------------------------------
  this must be used only for local atoms
  --------------------------------------------*/
-inline void PGCMC_2::find_cell_no(type0*& s,int& cell_no)
+inline void PGCMC::find_cell_no(type0*& s,int& cell_no)
 {
     cell_no=0;
     for(int i=0;i<__dim__;i++)
@@ -304,7 +290,7 @@ inline void PGCMC_2::find_cell_no(type0*& s,int& cell_no)
 /*--------------------------------------------
  
  --------------------------------------------*/
-inline void PGCMC_2::find_cell_coord(type0*& s,int*& cell_coord)
+inline void PGCMC::find_cell_coord(type0*& s,int*& cell_coord)
 {
     for(int i=0;i<__dim__;i++)
     {
@@ -319,7 +305,7 @@ inline void PGCMC_2::find_cell_coord(type0*& s,int*& cell_coord)
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::prep_s_x_buff()
+void PGCMC::prep_s_x_buff()
 {
     
     int count[__dim__];
@@ -387,7 +373,7 @@ void PGCMC_2::prep_s_x_buff()
 /*--------------------------------------------
  this is used for insertion trial
  --------------------------------------------*/
-void PGCMC_2::reset_iatm()
+void PGCMC::reset_iatm()
 {
     itrial_atm=-1;
     next_iatm();
@@ -395,7 +381,7 @@ void PGCMC_2::reset_iatm()
 /*--------------------------------------------
  this is used for insertion trial
  --------------------------------------------*/
-void PGCMC_2::next_iatm()
+void PGCMC::next_iatm()
 {
     itrial_atm++;
     
@@ -437,7 +423,7 @@ void PGCMC_2::next_iatm()
 /*--------------------------------------------
  this is used for insertion trial
  --------------------------------------------*/
-void PGCMC_2::reset_jatm()
+void PGCMC::reset_jatm()
 {
     ineigh=0;
     jatm_next=-1;
@@ -446,7 +432,7 @@ void PGCMC_2::reset_jatm()
 /*--------------------------------------------
  find the next lcl atom
  --------------------------------------------*/
-inline void PGCMC_2::next_jatm_reg()
+inline void PGCMC::next_jatm_reg()
 {
     while(true)
     {
@@ -475,7 +461,7 @@ inline void PGCMC_2::next_jatm_reg()
             if(itrial_atm==0 && im_root)
             {
                 iself=0;
-                next_jatm_p=&PGCMC_2::next_jatm_self;
+                next_jatm_p=&PGCMC::next_jatm_self;
                 return next_jatm_self();
             }
             else return;
@@ -497,22 +483,21 @@ inline void PGCMC_2::next_jatm_reg()
 /*--------------------------------------------
  find the next interactin image atom
  --------------------------------------------*/
-inline void PGCMC_2::next_jatm_self()
+inline void PGCMC::next_jatm_self()
 {
     while(true)
     {
         iself++;
         if(iself==ntrial_atms[icomm])
         {
-            next_jatm_p=&PGCMC_2::next_jatm_reg;
+            next_jatm_p=&PGCMC::next_jatm_reg;
             jatm=-1;
             return;
         }
         
         jatm=natms_lcl+iself;
         jx=s_x_buff[icomm]+iself*__dim__;
-        //jelem=gas_type0;
-        jelem=elem_buff;// image atom should be same type-mingfei
+        jelem=gas_type;
         rsq=Algebra::RSQ<__dim__>(ix,jx);
         
         if(rsq>=cut_sq[ielem][jelem]) continue;
@@ -523,14 +508,14 @@ inline void PGCMC_2::next_jatm_self()
 /*--------------------------------------------
  find the next interactin image atom
  --------------------------------------------*/
-void PGCMC_2::next_jatm()
+void PGCMC::next_jatm()
 {
     (this->*next_jatm_p)();
 }
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::next_icomm()
+void PGCMC::next_icomm()
 {
     icomm++;
     if(icomm==n_curr_comms)
@@ -547,7 +532,7 @@ void PGCMC_2::next_icomm()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::reset_icomm()
+void PGCMC::reset_icomm()
 {
     icomm=-1;
     next_icomm();
@@ -555,7 +540,7 @@ void PGCMC_2::reset_icomm()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::success2tag()
+void PGCMC::success2tag()
 {
     int* tag=tag_vec_p->begin();
     for(int i=0;i<natms_lcl;i++)
@@ -565,7 +550,7 @@ void PGCMC_2::success2tag()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::reset_tag()
+void PGCMC::reset_tag()
 {
     int* tag=tag_vec_p->begin();
     for(int i=0;i<natms_lcl;i++)
@@ -574,21 +559,14 @@ void PGCMC_2::reset_tag()
 /*--------------------------------------------
  attempt
  --------------------------------------------*/
-void PGCMC_2::attmpt()
+void PGCMC::attmpt()
 {
     create_comm_pattern();
 
 
     if(im_root)
     {
-        if (lcl_random->uniform()<ratio) //- mingfei 
-        {
-            igasType = 0;
-        }
-        else
-        {
-            igasType = 1;
-        }
+        
         if(lcl_random->uniform()<0.5)
         {
             gcmc_mode[0]=INS_MODE;
@@ -596,23 +574,21 @@ void PGCMC_2::attmpt()
             for(int i=0;i<__dim__;i++)
                 s_buff[0][i]=s_lo[i]+lcl_random->uniform()*(s_hi[i]-s_lo[i]);
             memcpy(comm_buff+1,s_buff[0],__dim__*sizeof(type0));
-            elem_buff=gas_typeArr[igasType];
-            ielem=elem_buff;
         }
         else
         {
-            if(ngas_lclArr[igasType])
+            if(ngas_lcl)
             {
                 gcmc_mode[0]=DEL_MODE;
                 comm_buff[0]=1;
-                igas=static_cast<int>(ngas_lclArr[igasType]*lcl_random->uniform());
+                igas=static_cast<int>(ngas_lcl*lcl_random->uniform());
                 
                 int n=igas;
                 int icount=-1;
                 elem_type* elem=atoms->elem->begin();
                 del_idx=0;
                 for(;icount!=n;del_idx++)
-                    if(elem[del_idx]==gas_typeArr[igasType]) icount++;
+                    if(elem[del_idx]==gas_type) icount++;
                 del_idx--;
                 gas_id=atoms->id->begin()[del_idx];
                 
@@ -625,7 +601,6 @@ void PGCMC_2::attmpt()
                 comm_buff[0]=0;
             }
         }
-
         
         MPI_Bcast(comm_buff,comm_buff_size,MPI_BYTE,roots[0],*curr_comms[0]);
 
@@ -668,14 +643,13 @@ void PGCMC_2::attmpt()
 /*--------------------------------------------
  things to do after a successful deletion
  --------------------------------------------*/
-void PGCMC_2::del_succ()
+void PGCMC::del_succ()
 {
     
     /*--------------------------------------------------
      0.0 find the link to del_idx
      --------------------------------------------------*/
     int* p_2_idx=head_atm+cell_vec_p->begin()[del_idx];
-    //- mingfei : there is something wrong here. got to check it out
     while(*p_2_idx!=del_idx)
         p_2_idx=next_vec_p->begin()+*p_2_idx;
     /*--------------------------------------------------
@@ -714,34 +688,21 @@ void PGCMC_2::del_succ()
         *p_2_first_aft_del=del_idx;
         
     }
-    //type0 __gas_mass=-gas_mass;
-    type0 __gas_mass=-gas_massArr[igasType];//-mingfei
+    type0 __gas_mass=-gas_mass;
     Algebra::DyadicV<__dim__>(__gas_mass,atoms->x_d->begin()+del_idx*__dim__,mvv_lcl);
     atoms->del(del_idx);
-    //ngas_lcl--;
-    ngas_lclArr[igasType]--; //-mingfei
+    ngas_lcl--;
 }
 /*--------------------------------------------
  things to do after a successful insertion
  --------------------------------------------*/
-void PGCMC_2::ins_succ()
+void PGCMC::ins_succ()
 {
     atoms->add();
-    //for(int i=0;i<__dim__;i++) vel_buff[i]=lcl_random->gaussian()*sigma;
-    //check which gas type sigma should use-mingfei 
-    for (int j = 0; j < nGasType; j++)
-    {
-        if (gas_typeArr[j] == elem_buff) 
-        {
-            for(int i=0;i<__dim__;i++) vel_buff[i] = lcl_random->gaussian() * sigmaArr[j];
-        }
-
-    }
-    //-mingfei
+    for(int i=0;i<__dim__;i++) vel_buff[i]=lcl_random->gaussian()*sigma;
     memcpy(atoms->x->begin()+(natms_lcl-1)*__dim__,s_x_buff[0],__dim__*sizeof(type0));
     memcpy(atoms->x_d->begin()+(natms_lcl-1)*__dim__,vel_buff,__dim__*sizeof(type0));
-    //atoms->elem->begin()[natms_lcl-1]=gas_type0;
-    atoms->elem->begin()[natms_lcl-1]=elem_buff;//-mingfei
+    atoms->elem->begin()[natms_lcl-1]=gas_type;
     atoms->id->begin()[natms_lcl-1]=new_id;
     if(tag_vec_p) tag_vec_p->begin()[natms_lcl-1]=-1;
     if(!dof_empty)
@@ -751,9 +712,7 @@ void PGCMC_2::ins_succ()
     }
     
     
-    //Algebra::DyadicV<__dim__>(gas_mass,atoms->x_d->begin()+(natms_lcl-1)*__dim__,mvv_lcl);
-    //-mingfei
-    Algebra::DyadicV<__dim__>(gas_massArr[igasType],atoms->x_d->begin()+(natms_lcl-1)*__dim__,mvv_lcl);
+    Algebra::DyadicV<__dim__>(gas_mass,atoms->x_d->begin()+(natms_lcl-1)*__dim__,mvv_lcl);
     
     memcpy(s_vec_p->begin()+(natms_lcl-1)*__dim__,s_buff[0],__dim__*sizeof(type0));
     
@@ -767,14 +726,13 @@ void PGCMC_2::ins_succ()
         nxt_p=next_vec_p->begin()+*nxt_p;
     *nxt_p=natms_lcl-1;
     next_vec_p->begin()[natms_lcl-1]=-1;
-    //ngas_lcl++;
-    ngas_lclArr[igasType]++; //-mingfei
+    ngas_lcl++;
 }
 
 /*--------------------------------------------
  setup the communications
  --------------------------------------------*/
-void PGCMC_2::comms_setup(int n_vars_,int n_s_)
+void PGCMC::comms_setup(int n_vars_,int n_s_)
 {
     n_vars=n_vars_;
     n_s=n_s_;
@@ -862,7 +820,7 @@ void PGCMC_2::comms_setup(int n_vars_,int n_s_)
 /*--------------------------------------------
  split communications
  --------------------------------------------*/
-void PGCMC_2::split_sing()
+void PGCMC::split_sing()
 {
     int ip_vec[__dim__];
     for(int i=0;i<__dim__;i++)
@@ -930,7 +888,7 @@ void PGCMC_2::split_sing()
 /*--------------------------------------------
  split communications
  --------------------------------------------*/
-void PGCMC_2::split_mult()
+void PGCMC::split_mult()
 {
     int hi[__dim__];
     int mid[__dim__];
@@ -1031,7 +989,7 @@ void PGCMC_2::split_mult()
 /*--------------------------------------------
  dismantle communications
  --------------------------------------------*/
-void PGCMC_2::comms_dismantle()
+void PGCMC::comms_dismantle()
 {
     if(comm_id) delete [] *comm_id;
     delete [] comm_id;
@@ -1066,7 +1024,7 @@ void PGCMC_2::comms_dismantle()
 /*--------------------------------------------
  create random communication pattern
  --------------------------------------------*/
-void PGCMC_2::create_comm_pattern()
+void PGCMC::create_comm_pattern()
 {
     int n,d,r,l;
     n_curr_comms=1;
@@ -1202,7 +1160,7 @@ void PGCMC_2::create_comm_pattern()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::decide()
+void PGCMC::decide()
 {
     if(prev_p!=-1)
     {
@@ -1220,15 +1178,13 @@ void PGCMC_2::decide()
     type0 fac;
     if(gcmc_mode[0]==INS_MODE)
     {
-        //fac=z_fac*vol_lcl/(static_cast<type0>(ngas_lcl+1)*exp(beta*delta_u));
-        //-mingfei 
-        fac=z_facArr[igasType]*vol_lcl/(static_cast<type0>(ngas_lclArr[igasType]+1)*exp(beta*delta_u));
+        fac=z_fac*vol_lcl/(static_cast<type0>(ngas_lcl+1)*exp(beta*delta_u));
         if(lcl_random->uniform()<fac)
         {
             
-//#ifdef GCMCDEBUG
-//            tot_delta_u_lcl+=delta_u;
-//#endif
+#ifdef GCMCDEBUG
+            tot_delta_u_lcl+=delta_u;
+#endif
             root_succ=true;
             success[0]=0;
             int_buff[0]++;
@@ -1255,14 +1211,13 @@ void PGCMC_2::decide()
     }
     else if(gcmc_mode[0]==DEL_MODE)
     {
-        //fac=static_cast<type0>(ngas_lcl)*exp(beta*delta_u)/(z_fac*vol_lcl);
-        //-mingfei 
-        fac=static_cast<type0>(ngas_lclArr[igasType])*exp(beta*delta_u)/(z_facArr[igasType]*vol_lcl);
+        fac=static_cast<type0>(ngas_lcl)*exp(beta*delta_u)/(z_fac*vol_lcl);
+        
         if(lcl_random->uniform()<fac)
         {
-//#ifdef GCMCDEBUG
-//            tot_delta_u_lcl-=delta_u;
-//#endif
+#ifdef GCMCDEBUG
+            tot_delta_u_lcl-=delta_u;
+#endif
             root_succ=true;
             success[0]=0;
             int_buff[0]--;
@@ -1286,7 +1241,7 @@ void PGCMC_2::decide()
 /*--------------------------------------------
  
  --------------------------------------------*/
-void PGCMC_2::finalize()
+void PGCMC::finalize()
 {
     MPI_Bcast(&int_buff_sz,1,MPI_INT,origin_p,*gcmc_world);
     MPI_Bcast(int_buff,int_buff_sz,MPI_INT,origin_p,*gcmc_world);
@@ -1301,8 +1256,7 @@ void PGCMC_2::finalize()
     }
     add_del_id(int_buff+2,int_buff_sz-2);
 
-    //ngas+=int_buff[0];
-    ngasArr[igasType]+=int_buff[0];
+    ngas+=int_buff[0];
     atoms->natms+=int_buff[0];
     dof_diff+=int_buff[0]*__dim__;
 }

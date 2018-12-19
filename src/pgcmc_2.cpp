@@ -250,6 +250,10 @@ void PGCMC_2::xchng(bool chng_box,int nattmpts)
         atoms->dynamic_vecs[i]->resize(natms_lcl);
     
     //ngas_lcl=0; //ngas_lclArr[] initialized in GCMC::init()
+    for (int i = 0;i < nGasType;i++)  
+    {
+        ngas_lclArr[i] = 0;
+    }
     elem_type* elem=atoms->elem->begin();
     for(int i=0;i<natms_lcl;i++) 
     {
@@ -299,7 +303,7 @@ inline void PGCMC_2::find_cell_no(type0*& s,int& cell_no)
 {
     cell_no=0;
     for(int i=0;i<__dim__;i++)
-        cell_no+=B_cells[i]*MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),N_cells[i]-1);
+        cell_no+=B_cells[i]*MIN(static_cast<int>((s[i]-s_lo[i])/cell_size[i]),N_cells[i]-1); 
 }
 /*--------------------------------------------
  
@@ -581,14 +585,8 @@ void PGCMC_2::attmpt()
 
     if(im_root)
     {
-        if (lcl_random->uniform()<ratio) //- mingfei 
-        {
-            igasType = 0;
-        }
-        else
-        {
-            igasType = 1;
-        }
+        lcl_random->uniform()<ratio ? igasType=0 : igasType=1; //- mingfei 
+
         if(lcl_random->uniform()<0.5)
         {
             gcmc_mode[0]=INS_MODE;

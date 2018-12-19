@@ -636,9 +636,5 @@ void MDMuVT_2::getset_gas_element1(PyGetSetDef& getset)
 }
 
 
-/*-----------------------------------------
- * mingfei
- * do I need to add getset_mu1 or getset_ratio?
- ----------------------------------------*/
 
 

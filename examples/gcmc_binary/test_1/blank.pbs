@@ -1,0 +1,23 @@
+#!/bin/sh
+####  PBS preamble
+
+#PBS -N GCMC_binary
+#PBS -M mingfei@umich.edu
+#PBS -m abe
+
+
+#PBS -l nodes=2:ppn=12,pmem=4gb,walltime=2:00:00
+#PBS -j oe
+#PBS -V
+
+#PBS -A prismsprojectdebug_fluxoe
+#PBS -q fluxoe
+#PBS -l qos=flux
+
+####  End PBS preamble
+
+cd $PBS_O_WORKDIR
+source ~/load_mapp_debug
+
+mpiexec python in_Cu.py > output_Cu_flux_binary
+

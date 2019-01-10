@@ -16,7 +16,7 @@ def get_start_line(filename):
     with open(filename,'r')as fin:
         i = 0
         for line in fin:
-            if '|     step    |       T       |' in line:
+            if '|     step    |      T      |' in line:
                 start = i
                 break
             i = i + 1
@@ -41,25 +41,26 @@ def fetch_step_energy(filename):
             data[i-start][0] = float(lines[i].split()[1])
             data[i-start][1] = float(lines[i].split()[5])
             data[i-start][2] = float(lines[i].split()[19])/float(lines[i].split()[21])
+    print data
+    fig1, ax1 = plt.subplots()
+    ax1.plot(data[:,0], data[:,1])
+    ax1.set(xlabel='timestep', ylabel='energy (eV)')
+    ax1.grid()
+    fig1.savefig("plots/step_E.pdf")
 
-    fig, ax = plt.subplots()
-    ax.plot(data[:,0], data[:,1])
-    ax.set(xlabel='timestep', ylabel='energy (eV)')
-    ax.grid()
-    fig.savefig("plots/step_E.pdf")
-
-    fig, ax = plt.subplots()
-    ax.plot(data[:,0], data[:,2])
-    ax.set(xlabel='timestep', ylabel='element number ratio')
-    ax.grid()
-    fig.savefig("plots/step_ele_ratio.pdf")
+    fig2, ax2 = plt.subplots()
+    ax2.plot(data[:,0], data[:,2])
+    ax2.set(xlabel='timestep', ylabel='element number ratio')
+    ax2.grid()
+    fig2.savefig("plots/step_ele_ratio.pdf")
     return
 
 if __name__ == "__main__":
     if (len(sys.argv) != 2):
-        print("usage:\nplot_E.py <mapp output file>\n")
+        print("usage:\nplot_mapp_E.py <mapp output file>\n")
     else:
         if (not os.path.isdir('plots')):
            os.mkdir('plots')
            inFile = sys.argv[1]
+           print inFile
            fetch_step_energy(inFile)

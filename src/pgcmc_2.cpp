@@ -585,8 +585,6 @@ void PGCMC_2::attmpt()
 
     if(im_root)
     {
-        lcl_random->uniform()<ratio ? igasType=0 : igasType=1; //- mingfei 
-
         if(lcl_random->uniform()<0.5)
         {
             gcmc_mode[0]=INS_MODE;
@@ -594,18 +592,40 @@ void PGCMC_2::attmpt()
             for(int i=0;i<__dim__;i++)
                 s_buff[0][i]=s_lo[i]+lcl_random->uniform()*(s_hi[i]-s_lo[i]);
             memcpy(comm_buff+1,s_buff[0],__dim__*sizeof(type0));
+            lcl_random->uniform()<0.5 ? igasType=0 : igasType=1; //- mingfei 
             elem_buff=gas_typeArr[igasType];
             ielem=elem_buff;
         }
         else
         {
-            if(ngas_lclArr[igasType])
+            if(ngas_lclArr[0] || ngas_lclArr[1]) //if existing any lcl gas -mingfei
             {
                 gcmc_mode[0]=DEL_MODE;
                 comm_buff[0]=1;
-                igas=static_cast<int>(ngas_lclArr[igasType]*lcl_random->uniform());
+                //igas=static_cast<int>(ngas_lclArr[igasType]*lcl_random->uniform());
+                //use total lcl gas element instead
+                igas=static_cast<int>((ngas_lclArr[0]+ngas_lclArr[1])*lcl_random->uniform());
+
+                int n;
+                if (ngas_lclArr[0])
+                {
+                    if (igas < ngas_lclArr[0])
+                    {
+                        n = igas;
+                        igasType = 0;
+                    }
+                    else
+                    {
+                        n = (igas - ngas_lclArr[0]);
+                        igasType = 1;
+                    }
+                }
+                else
+                {
+                    n = igas;
+                    igasType = 1;
+                }
                 
-                int n=igas;
                 int icount=-1;
                 elem_type* elem=atoms->elem->begin();
                 del_idx=0;

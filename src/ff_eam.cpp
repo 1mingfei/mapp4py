@@ -347,7 +347,7 @@ void ForceFieldEAM::pre_xchng_energy(GCMC* gcmc)
     
     for(gcmc->reset_icomm();icomm!=-1;gcmc->next_icomm())
     {
-        c0=1.0;
+        c0=1.0; //also works for EX MODE
         if(gcmc->xchng_mode==DEL_MODE) c0=-1.0;
         else if(gcmc->xchng_mode==NOEX_MODE) continue;
         

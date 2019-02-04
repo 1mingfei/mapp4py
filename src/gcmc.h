@@ -8,7 +8,7 @@
 #include <mpi.h>
 namespace MAPP_NS
 {
-    enum{NOEX_MODE,DEL_MODE,INS_MODE};
+    enum{NOEX_MODE,DEL_MODE,INS_MODE,EX_MODE};
     enum{MINE_FLAG,INTERACT_FLAG,NONEINTERACT_FLAG};
     /*--------------------------------------------
      allocation for this constructor has 3 levels:

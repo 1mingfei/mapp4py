@@ -7,6 +7,7 @@ namespace MAPP_NS
     class PGCMC_2:public GCMC
     {
     private:
+    protected:
 
         type0 ratio;
         bool dof_empty;
@@ -115,7 +116,7 @@ namespace MAPP_NS
         void next_jatm_self();
         void (PGCMC_2::*next_jatm_p)();
         
-        void attmpt();
+        virtual void attmpt();
         
         /*---------------------------------------------------------------------*/
         
@@ -134,7 +135,7 @@ namespace MAPP_NS
         int prev_p,next_p,origin_p;
         type0 delta_u;
         int new_id;
-        void decide();
+        virtual void decide();
         void finalize();
         void split_sing();
         void split_mult();
@@ -142,7 +143,7 @@ namespace MAPP_NS
         
         // added new parameter for the new criterion of acceptance and rejectance
         type0 vol_lcl;
-    protected:
+    //protected:
         void ins_succ();
         void del_succ();
         void box_setup();
